@@ -1,0 +1,64 @@
+<!-- templates/about/author.html -->
+{% extends "base.html" %}
+{% block title %}Об авторе проекта{% endblock %}
+{% block content %}
+{% load user_filters %}
+  <main role="main" class="container">
+    <div class="row">
+      <!-- Левый вспомогательный блок -->
+      <div class="col-md-3 mb-3 mt-1">
+        <div class="card">
+          <div class="card-body">
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item">
+                <div class="h3">
+                  <i class="fab fa-affiliatetheme"></i>
+                  <i class="fab fa-accusoft"></i>
+                  <i class="fab fa-github-alt"></i>
+                  <i class="fab fa-gulp"></i>
+                  <i class="fab fa-yandex"></i>
+                </div> 
+              </li>
+              <li class="list-group-item">
+                <div class="h6 text-muted">
+                  <p>Полезный короткий текст</p>
+                    <a href="https://github.com/Marik63">Это мой GitHub, с моими проектами.</a>
+                </div>
+              </li>
+            </ul>                                               
+          </div>                    
+        </div>                
+      </div>
+      <!-- Тело страницы -->
+      <div class="col-md-9">
+        <div class="card-body">                    
+          <div class="card-text">
+            <p>Здравствуйте! Меня зовут <b>Марат</b>. Я пока не программист, я учусь в Яндекс Практикуме, мне нравится - это весело, но занимает очень много времени.</p>
+            <p>Кстати, этот проект - <b>Yatube</b>. Аналогов в интернете не найти. Я в него вложил все свои знания, получилось почти на миллион (да вы и сами это видите).</p>
+            {% load static %}
+            <img class="rounded mx-auto d-block" src=""  width="300">
+          </div>
+        </div>
+      </div>
+      <div class="row featurette">
+        <div class="col-md-7">
+          <h2 class="featurette-heading">P.S. Это моё рабочее место <span class="text-muted"> , где я пишу проект на Яндекс Практикум!</span></h2>
+        </div>
+        <div class="col-md-5">
+          <img class="featurette-image img-fluid mx-auto" src="{% static 'IMG_1.jpg' %}" alt="https://giphy.com/gifs/JIX9t2j0ZTN9S">
+        </div>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-7 order-md-2">
+          <h2 class="featurette-heading">Ах, да! В свободное время я катаюсь не велосипеде. <span class="text-muted">И это помогает мне отвлечься от учебы и набраться сил.</span></h2>
+          <p class="lead">(<i>Чтоб максимум получить знания и устроиться в нормальную компанию.</i>)</p>
+        </div>
+        <div class="col-md-5 order-md-1">
+          <img class="featurette-image img-fluid mx-auto" src="{% static 'It_s mi.jpg' %}">
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock %}
