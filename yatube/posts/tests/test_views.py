@@ -16,26 +16,12 @@ User = get_user_model()
 
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
-small_gif = (
-    b"\x47\x49\x46\x38\x39\x61\x02\x00"
-    b"\x01\x00\x80\x00\x00\x00\x00\x00"
-    b"\xFF\xFF\xFF\x21\xF9\x04\x00\x00"
-    b"\x00\x00\x00\x2C\x00\x00\x00\x00"
-    b"\x02\x00\x01\x00\x00\x02\x02\x0C"
-    b"\x0A\x00\x3B"
-)
-
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostsPagesTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        uploaded = SimpleUploadedFile(
-            name="small.gif",
-            content=small_gif,
-            content_type="image/gif"
-        )        
         cls.user = User.objects.create_user(username='posts_test')
         cls.group = Group.objects.create(
             title='Тестовая группа',
@@ -47,6 +33,20 @@ class PostsPagesTests(TestCase):
             slug='posts_test_slug2',
             description='Тестовое описание 2',
         )
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=small_gif,
+            content_type='image/gif'
+        )
+     
         cls.post = Post.objects.create(
             author=cls.user,
             text='Тестовый пост для проверки',
@@ -67,7 +67,16 @@ class PostsPagesTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostsPagesTests.user)
-        cache.clear()
+
+    def compare_objects(self, post):
+        self.assertEqual(post.text, f'{self.post.text}')
+        self.assertEqual(post.author.username, self.user.username)
+        self.assertEqual(post.group, self.group)
+        self.assertEqual(post.image, self.post.image)
+
+    def create_follower(self):
+        another_user = User.objects.create_user(username='admin')
+        self.authorized_client.force_login(another_user)
 
     def test_pages_use_correct_templates(self):
         """Проверяем что URL адреса использую корректные шаблоны."""
@@ -200,3 +209,102 @@ class PostsPagesTests(TestCase):
         url = reverse('posts:group_list', args=['posts_test_slug2'])
         response = self.authorized_client.get(url)
         self.assertEqual(len(response.context["page_obj"]), 0)
+
+    def test_cache_index(self):
+        """Тестирование кэширования главной страницы"""
+        def response_page():
+            response = self.authorized_client.get(
+                reverse('posts:index')).content.decode('UTF-8')
+            return response
+
+        cache.clear()
+        text_cache = self.post.text
+        self.assertIn(text_cache, response_page())
+        Post.objects.filter(text=text_cache).delete()
+        cache.clear()
+        self.assertNotIn(text_cache, response_page())
+
+
+class TestFollow(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user_sam = User.objects.create_user(username='sam')
+        self.user_sara = User.objects.create_user(username='sara')
+        self.data_page_sara = {'username': self.user_sara.username}
+        self.post_sara = Post.objects.create(
+            text='текст', author=self.user_sara)
+        self.client.force_login(self.user_sam)
+
+    def test_follow_unfollow(self):
+        """Авторизованный пользователь не может подписываться на других пользователей."""
+        follow_url = reverse(
+            'profile_follow',  kwargs=self.data_page_sara)
+        self.client.get(follow_url)
+        follow = Follow.objects.filter(
+            user=self.user_sam,  author=self.user_sara).exists()
+
+        unfollow_url = reverse(
+            'profile_unfollow',
+            kwargs=self.data_page_sara)
+        self.client.get(unfollow_url)
+        follow = Follow.objects.filter(
+            user=self.user_sam,  author=self.user_sara).exists()
+
+    def test_published_post_from_following_author_on_follow_page(self):
+        """Пост пользователя появился в избранных постах его подписчика."""
+        follow = Follow.objects.create(
+            user=self.user_sam,  author=self.user_sara)
+        self.assertTrue(follow)
+        follow_url = reverse('follow_index')
+
+        response = self.client.get(follow_url)
+        self.assertContains(response,
+                            text=self.post_sara.text,
+                            status_code=200)
+
+    def test_published_post_from_unfollowing_author_on_follow_page(self):
+        """Пост пользователя появился в избранных постах тех, кто на него не подписан."""
+        follow = Follow.objects.filter(
+            user=self.user_sam,  author=self.user_sara).exists()
+        self.assertFalse(follow)
+        follow_url = reverse('follow_index')
+        response = self.client.get(follow_url)
+        self.assertNotContains(response,
+                               text=self.post_sara.text,
+                               status_code=200)
+
+class TestComment(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user_sam = User.objects.create_user(username='sam')
+        self.user_sara = User.objects.create_user(username='sara')
+        self.post_sara = Post.objects.create(
+            text='текст',
+            author=self.user_sara
+        )
+        self.data_page_sara = {'username': self.user_sara.username,
+                               'post_id': self.post_sara.id}
+        self.data_comment = {'text': 'Комментарий'}
+
+    def test_comment_authorized_user(self):
+        """Авторизованный пользователь смог оставить комментарий под другим постом."""
+        self.client.force_login(self.user_sam)
+        post_add_comment = reverse('add_comment', kwargs=self.data_page_sara)
+        self.client.post(post_add_comment, self.data_comment)
+        post_view_url = reverse(
+            'post_view', kwargs=self.data_page_sara)
+        response = self.client.get(post_view_url)
+        self.assertContains(response,
+                            text=self.data_comment['text'],
+                            status_code=200)
+
+    def test_comment_unauthorized_user(self):
+        """Авторизованный пользователь смог оставить комментарий под другим постом."""
+        post_add_comment = reverse('add_comment', kwargs=self.data_page_sara)
+        self.client.post(post_add_comment, self.data_comment)
+        post_view_url = reverse(
+            'post_view', kwargs=self.data_page_sara)
+        response = self.client.get(post_view_url)
+        self.assertNotContains(response,
+                               text=self.data_comment['text'],
+                               status_code=200)

@@ -93,6 +93,11 @@ class PostsFormsTestCase(TestCase):
         for date, value in post_last.items():
             with self.subTest(date=date):
                 self.assertEqual(date, value)
+        Post.objects.filter(
+            author=self.post.author,
+            group=self.group,
+            image='posts/small.gif'
+        ).exists()           
 
     def test_edit_valid_post(self):
         """
