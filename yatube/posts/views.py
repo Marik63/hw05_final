@@ -50,10 +50,22 @@ def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     form = CommentForm(request.POST or None)
     comments = post.comments.all()
+
+    posts_count = post.author.posts.count()
+    followers_count = Follow.objects.filter(author=post.author).count()
+    follow_count = Follow.objects.filter(user=post.author).count()
+
+    following = request.user.is_authenticated and Follow.objects.filter(
+        user=request.user, author=post.author).exists()
+
     context = {
         'post': post,
         'form': form,
         'comments': comments,
+        'posts_count': posts_count,
+        'follow_count': follow_count,
+        'followers_count': followers_count,
+        'following': following,
     }
     return render(request, 'posts/post_detail.html', context)
 
@@ -120,23 +132,27 @@ def follow_index(request):
     }
     return render(request, 'posts/follow.html', context)
 
-
 @login_required
 def profile_follow(request, username):
     # Подписаться на автора
     author = get_object_or_404(User, username=username)
     if request.user != author:
-        Follow.objects.get_or_create(user=request.user, author=author)
-    return redirect("profile", username=username)
-
+        Follow.objects.get_or_create(
+            user=request.user,
+            author=author
+        )
+    return redirect('posts:profile', username=username)
 
 @login_required
 def profile_unfollow(request, username):
     # Дизлайк, отписка
     author = get_object_or_404(User, username=username)
     if request.user != author:
-        Follow.objects.filter(user=request.user, author=author).delete()
-    return redirect("profile", username=username)
+        Follow.objects.filter(
+            user=request.user,
+            author=author
+        ).delete()
+    return redirect('posts:profile', username=username)
 
 
 def page_not_found(request, exception):
