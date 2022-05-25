@@ -34,13 +34,28 @@ def group_posts(request, slug):
 def profile(request, username):
     """Показывает профиль пользователя."""
     author = get_object_or_404(User, username=username)
-    posts_count = author.posts.count()
     post_list = author.posts.select_related('group')
     page_object = page(request, post_list)
+
+    posts_count = author.posts.count()
+    followers_count = Follow.objects.filter(author=author).count()
+    follow_count = Follow.objects.filter(user=author).count()
+
+    if request.user.is_authenticated:
+        following = Follow.objects.filter(
+            user=request.user, author=author
+        ).exists()
+    else:
+        following = False
+    profile = author
+
     context = {
         'author': author,
         'page_obj': page_object,
         'posts_amount': posts_count,
+        'follow_count': follow_count,
+        'followers_count': followers_count,
+        'following': following,
     }
     return render(request, 'posts/profile.html', context)
 
@@ -52,20 +67,11 @@ def post_detail(request, post_id):
     comments = post.comments.all()
 
     posts_count = post.author.posts.count()
-    followers_count = Follow.objects.filter(author=post.author).count()
-    follow_count = Follow.objects.filter(user=post.author).count()
-
-    following = request.user.is_authenticated and Follow.objects.filter(
-        user=request.user, author=post.author).exists()
-
     context = {
         'post': post,
         'form': form,
         'comments': comments,
         'posts_count': posts_count,
-        'follow_count': follow_count,
-        'followers_count': followers_count,
-        'following': following,
     }
     return render(request, 'posts/post_detail.html', context)
 
