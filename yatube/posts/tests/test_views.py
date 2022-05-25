@@ -138,77 +138,51 @@ class PostsPagesTests(TestCase):
                 response = self.authorized_client.get(field)
                 self.assertEqual(response.status_code, expected_value)
 
-    def test_post_detail_page_show_correct_context(self):
-        """Проверяем что post_detail имеет правильный context."""
-        post = PostsPagesTests.post
-        context_pages = {
-            reverse('posts:post_detail', kwargs={'post_id': f'{post.id}'}):
-                post.id,
-        }
-        for reverse_name, expect_context in context_pages.items():
-            with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
-                self.assertEqual(response.context['post'].id, expect_context)
+    def test_error_400(self):
+        """Cервер не возвращает код 404, если страница не найдена."""
+        response = self.client.get('/summer/')
+        self.assertEqual(response.status_code, 404)
 
-    def test_post_create_page_show_correct_context(self):
-        """Проверяем что post_create имеет правильный context."""
-        response = self.authorized_client.get(reverse('posts:post_create'))
-        form_fields = {
-            'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField,
-        }
-        for value, expected in form_fields.items():
-            with self.subTest(value=value):
-                form_field = response.context.get('form').fields.get(value)
-                self.assertIsInstance(form_field, expected)
 
-    def test_post_edit_page_show_correct_context(self):
-        """Проверяем что post_edit имеет правильный context."""
-        post = PostsPagesTests.post
-        url = reverse('posts:post_edit', kwargs={'post_id': f'{post.id}'})
-        response = self.authorized_client.get(url)
-        form_fields = {
-            'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField,
-        }
-        is_edit = True
-        for value, expected in form_fields.items():
-            with self.subTest(value=value):
-                form_field = response.context.get('form').fields.get(value)
-                self.assertIsInstance(form_field, expected)
-        self.assertEqual(response.context["is_edit"], is_edit)
 
-    def test_pages_has_correct_context(self):
-        """Тестируем что страницы имеют корректный context."""
-        paginator_pages = {
-            reverse('posts:index'): 'page_obj',
-            reverse('posts:group_list', kwargs={
-                'slug': 'posts_test_slug'}): 'page_obj',
-            reverse('posts:profile', kwargs={'username': 'posts_test'}):
-                'page_obj',
-        }
-        for reverse_name, obj in paginator_pages.items():
-            with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
-                self.assertIsNotNone(response.context[obj])
+class TestComment(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user_user = User.objects.create_user(username='user')
+        self.user_user2 = User.objects.create_user(username='user2')
+        self.post_user2 = Post.objects.create(
+            text='текст',
+            author=self.user_user2
+        )
+        self.data_page_user2 = {'username': self.user_user2.username,
+                               'post_id': self.post_user2.id}
 
-    def test_grouped_post_show_in_pages(self):
-        """Проверяем что пост с группой попадает на страницы."""
-        group_post_pages = {
-            reverse('posts:index'): 2,
-            reverse('posts:group_list', kwargs={'slug': 'posts_test_slug'}): 1,
-            reverse('posts:profile', kwargs={'username': 'posts_test'}): 2,
-        }
-        for value, expected in group_post_pages.items():
-            with self.subTest(value=value):
-                response = self.authorized_client.get(value)
-                self.assertEqual(len(response.context["page_obj"]), expected)
+        self.data_comment = {'text': 'Комментарий'}
 
-    def test_new_group_page_dont_have_a_post(self):
-        """Проверяем что страница новой группы не имеет постов."""
-        url = reverse('posts:group_list', args=['posts_test_slug2'])
-        response = self.authorized_client.get(url)
-        self.assertEqual(len(response.context["page_obj"]), 0)
+    def test_comment_authorized_user(self):
+        """Авторизованный пользователь мщжет оставить комментарий под другим постом."""
+        self.client.force_login(self.user_user)
+        post_add_comment = reverse('add_comment', kwargs=self.data_page_user2)
+        self.client.post(post_add_comment, self.data_comment)
+        post_view_url = reverse(
+            'post_view', kwargs=self.data_page_user2)
+        response = self.client.get(post_view_url)
+        self.assertContains(response,
+                            text=self.data_comment['text'],
+                            status_code=200)
+
+    def test_comment_unauthorized_user(self):
+        """Авторизованный пользователь может оставить комментарий под другим постом."""
+        post_add_comment = reverse('add_comment', kwargs=self.data_page_user2)
+        self.client.post(post_add_comment, self.data_comment)
+        post_view_url = reverse(
+            'post_view', kwargs=self.data_page_user2)
+        response = self.client.get(post_view_url)
+        self.assertNotContains(response,
+                               text=self.data_comment['text'],
+                               status_code=200)
+
+
 
     def test_cache_index(self):
         """Тестирование кэширования главной страницы"""
@@ -228,83 +202,54 @@ class PostsPagesTests(TestCase):
 class TestFollow(TestCase):
     def setUp(self):
         self.client = Client()
-        self.user_sam = User.objects.create_user(username='sam')
-        self.user_sara = User.objects.create_user(username='sara')
-        self.data_page_sara = {'username': self.user_sara.username}
-        self.post_sara = Post.objects.create(
-            text='текст', author=self.user_sara)
-        self.client.force_login(self.user_sam)
+        self.user_user = User.objects.create_user(username='user')
+        self.user_user2 = User.objects.create_user(username='user2')
+        self.data_page_user2 = {'username': self.user_user2.username}
+        self.post_user2 = Post.objects.create(
+            text='текст', author=self.user_user2)
+        self.client.force_login(self.user_user)
 
     def test_follow_unfollow(self):
         """Авторизованный пользователь не может подписываться на других пользователей."""
         follow_url = reverse(
-            'profile_follow',  kwargs=self.data_page_sara)
+            'profile_follow',  kwargs=self.data_page_user2)
         self.client.get(follow_url)
         follow = Follow.objects.filter(
-            user=self.user_sam,  author=self.user_sara).exists()
+            user=self.user_user,
+            author=self.user_user2
+        ).exists()
 
         unfollow_url = reverse(
             'profile_unfollow',
-            kwargs=self.data_page_sara)
+            kwargs=self.data_page_user2)
         self.client.get(unfollow_url)
         follow = Follow.objects.filter(
-            user=self.user_sam,  author=self.user_sara).exists()
+            user=self.user_user,
+            author=self.user_user2
+        ).exists()
+
 
     def test_published_post_from_following_author_on_follow_page(self):
         """Пост пользователя появился в избранных постах его подписчика."""
         follow = Follow.objects.create(
-            user=self.user_sam,  author=self.user_sara)
+            user=self.user_user,  author=self.user_user2)
         self.assertTrue(follow)
         follow_url = reverse('follow_index')
 
         response = self.client.get(follow_url)
         self.assertContains(response,
-                            text=self.post_sara.text,
+                            text=self.post_user2.text,
                             status_code=200)
 
     def test_published_post_from_unfollowing_author_on_follow_page(self):
         """Пост пользователя появился в избранных постах тех, кто на него не подписан."""
         follow = Follow.objects.filter(
-            user=self.user_sam,  author=self.user_sara).exists()
+            user=self.user_user,
+            author=self.user_user2
+        ).exists()
         self.assertFalse(follow)
         follow_url = reverse('follow_index')
         response = self.client.get(follow_url)
         self.assertNotContains(response,
-                               text=self.post_sara.text,
-                               status_code=200)
-
-class TestComment(TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.user_sam = User.objects.create_user(username='sam')
-        self.user_sara = User.objects.create_user(username='sara')
-        self.post_sara = Post.objects.create(
-            text='текст',
-            author=self.user_sara
-        )
-        self.data_page_sara = {'username': self.user_sara.username,
-                               'post_id': self.post_sara.id}
-        self.data_comment = {'text': 'Комментарий'}
-
-    def test_comment_authorized_user(self):
-        """Авторизованный пользователь смог оставить комментарий под другим постом."""
-        self.client.force_login(self.user_sam)
-        post_add_comment = reverse('add_comment', kwargs=self.data_page_sara)
-        self.client.post(post_add_comment, self.data_comment)
-        post_view_url = reverse(
-            'post_view', kwargs=self.data_page_sara)
-        response = self.client.get(post_view_url)
-        self.assertContains(response,
-                            text=self.data_comment['text'],
-                            status_code=200)
-
-    def test_comment_unauthorized_user(self):
-        """Авторизованный пользователь смог оставить комментарий под другим постом."""
-        post_add_comment = reverse('add_comment', kwargs=self.data_page_sara)
-        self.client.post(post_add_comment, self.data_comment)
-        post_view_url = reverse(
-            'post_view', kwargs=self.data_page_sara)
-        response = self.client.get(post_view_url)
-        self.assertNotContains(response,
-                               text=self.data_comment['text'],
+                               text=self.post_user2.text,
                                status_code=200)

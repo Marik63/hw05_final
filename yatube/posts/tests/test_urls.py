@@ -88,38 +88,3 @@ class TaskURLTests(TestCase):
             with self.subTest(field=field):
                 response = self.guest_client.get(field)
                 self.assertEqual(response.status_code, expected_value)
-
-
-
-
-    def test_404(self):
-        """Несуществующая страница выдаёт ошибку 404."""
-        response = self.authorized_client.get('arbarbarb')
-        self.assertEqual(response.status_code, 404)
-
-    def test_page_not_found(self):
-        """Доступ к несуществующей странице. """
-        response = self.guest_client.get('misc/404.html')
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-
-
-    def test_post_create_url_redirect_anonymous_on_admin_login(self):
-        """Страница /create/ перенаправит анонимного пользователя
-        на страницу логина.
-        """
-        response = self.client.get('/create/', follow=True)
-        self.assertRedirects(
-            response, '/auth/login/?next=/create/')
-
-    def test_urls_exist_at_desired_location_authorized(self):
-        """Страница доступна авторизованному пользователю."""
-
-        url_address_names = (
-            f'/{self.author.username}/follow/',
-            f'/{self.author.username}/unfollow/',
-        )
-
-        for address in url_address_names:
-            with self.subTest(address=address):
-                response = self.authorized_client.get(address)
-                self.assertEqual(response.status_code, HTTPStatus.FOUND)
