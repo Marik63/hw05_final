@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from posts.forms import PostForm
 
 from posts.models import Follow, Group, Post
 
@@ -23,14 +24,15 @@ class PostsPagesTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create_user(username='posts_test')
+        cls.author = User.objects.create_user(username='posts_test2')
         cls.group = Group.objects.create(
             title='Тестовая группа',
-            slug='posts_test_slug',
+            slug='test_slug',
             description='Тестовое описание',
         )
         cls.group2 = Group.objects.create(
             title='Тестовая группа 2',
-            slug='posts_test_slug2',
+            slug='test_slug2',
             description='Тестовое описание 2',
         )
         small_gif = (
@@ -48,15 +50,12 @@ class PostsPagesTests(TestCase):
         )
      
         cls.post = Post.objects.create(
-            author=cls.user,
-            text='Тестовый пост для проверки',
+            text='Тестовый текст поста',
+            author=cls.author,
+            group=cls.group,
             image=uploaded,
         )
-        cls.group_post = Post.objects.create(
-            author=cls.user,
-            text='Групповой тестовый пост для проверки',
-            group=cls.group,
-        )
+
 
     @classmethod
     def tearDownClass(cls):
@@ -67,23 +66,15 @@ class PostsPagesTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostsPagesTests.user)
-
-    def compare_objects(self, post):
-        self.assertEqual(post.text, f'{self.post.text}')
-        self.assertEqual(post.author.username, self.user.username)
-        self.assertEqual(post.group, self.group)
-        self.assertEqual(post.image, self.post.image)
-
-    def create_follower(self):
-        another_user = User.objects.create_user(username='admin')
-        self.authorized_client.force_login(another_user)
+        self.authorized_author_client = Client()
+        self.authorized_author_client.force_login(self.author)
 
     def test_pages_use_correct_templates(self):
         """Проверяем что URL адреса использую корректные шаблоны."""
         post = PostsPagesTests.post
         templates_pages_names = {
             reverse('posts:index'): 'posts/index.html',
-            reverse('posts:group_list', kwargs={'slug': 'posts_test_slug'}):
+            reverse('posts:group_list', kwargs={'slug': 'test_slug'}):
                 'posts/group_list.html',
             reverse('posts:profile', kwargs={'username': 'posts_test'}):
                 'posts/profile.html',
@@ -98,13 +89,178 @@ class PostsPagesTests(TestCase):
                 response = self.authorized_client.get(reverse_name)
                 self.assertTemplateUsed(response, template)
 
+    # Проверка словаря контекста главной страницы (в нём передаётся форма)
+    def test_index_page_show_correct_context(self):
+        """Шаблон index сформирован с правильным контекстом."""
+        response = self.authorized_client.get(reverse('posts:index'))
+        # Словарь ожидаемых типов полей формы:
+        # указываем, объектами какого класса должны быть поля формы
+        form_fields = {
+            # При создании формы поля модели типа TextField 
+            # преобразуются в CharField с виджетом forms.Textarea  
+            'text': forms.fields.TextField,
+            'pub_date': forms.fields.DateTimeField,
+            'user': forms.fields.ForeignKey,
+            'author': forms.fields.ForeignKey,
+            'image': forms.fields.ImageField,
+        }        
+
+        # Проверяем, что типы полей формы в словаре context соответствуют ожиданиям
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                # Проверяет, что поле формы является экземпляром
+                # указанного класса
+                self.assertIsInstance(form_field, expected)
+
+
+    def test_index_page_show_correct_context(self):
+        """Шаблон index сформирован с правильным контекстом."""
+
+        response = self.guest_client.get(reverse('index'))
+
+        # Взяли первый элемент из списка и проверили, что его содержание
+        # совпадает с ожидаемым
+        first_object = response.context['page'].object_list[0]
+        post_text_0 = first_object.text
+        post_author_0 = first_object.author.username
+        group_title_0 = first_object.group.title
+        post_pic_0 = first_object.image
+
+        self.assertEqual(
+            post_text_0,
+            'Тестовый текст поста',
+            'Неверный текст поста на главной странице'
+        )
+        self.assertEqual(
+            post_author_0,
+            f'{self.author.username}',
+            'Неверный автор поста на главной странице'
+        )
+        self.assertEqual(
+            group_title_0,
+            'Тестовый заголовок группы',
+            'Неверный заголовок группы на главной странице'
+        )
+        self.assertEqual(
+            post_pic_0,
+            f'{self.post.image}',
+            'Неверный текст поста на главной странице'
+        )
+
+
+    # Проверяем, что словарь context страницы group/test_slug
+    # содержит ожидаемые значения 
+    def test_group_posts_pages_show_correct_context(self):
+        """Шаблон group_posts сформирован с правильным контекстом."""
+        response = (self.authorized_client.
+            get(reverse('posts:group_posts', kwargs={'slug': 'test_slug'})))
+        self.assertEqual(response.context.get('post').text, self.post.text)
+        self.assertEqual(response.contextget('post').image, self.post.image)
+        self.assertEqual(response.context.get('group').slug, 'test_slug') 
+        self.assertEqual(response.contextget('group').description,
+                         self.group.description)
+
+
+    def test_profile_pages_show_correct_context(self):
+        """Шаблон profile сформирован с правильным контекстом."""
+        response = self.authorized_client.get(reverse(
+            'profile',
+            kwargs={'username': self.author.username})
+        )
+
+        first_object = response.context['page'][0]
+        post_text_0 = first_object.text
+        post_author_0 = first_object.author.username
+        post_pic_0 = first_object.image
+
+        self.assertEqual(
+            post_text_0,
+            'Тестовый текст поста',
+            'Неверный текст поста на странице профиля'
+        )
+        self.assertEqual(
+            post_author_0,
+            f'{self.author.username}',
+            'Неверный автор поста на странице профиля'
+        )
+        self.assertEqual(
+            post_pic_0,
+            f'{self.post.image}',
+            'Неверный текст поста на главной странице'
+        )
+
+
+    def test_post_detail_pages_show_correct_context(self):
+        """Шаблон post_detail сформирован с правильным контекстом."""
+        response = self.authorized_client.get(
+            reverse('posts:post_detail', kwargs={'post_id': 'self.post.id'})
+        )
+        self.assertEqual(response.context.get('post').group, self.post.group)
+        self.assertEqual(response.context.get('post').autor, self.post.autor)
+        self.assertEqual(response.context.get('post').text, self.post.text)
+        self.assertEqual(response.contextget('post').image, self.post.image)
+        self.assertEqual(response.context.get('group').slug, 'test_slug') 
+        self.assertEqual(response.context.get('group').description,
+                         self.group.description)
+
+    def test_create_post_page_show_correct_context(self):
+        """Шаблон create_post сформирован с правильным контекстом."""
+
+        response = self.authorized_author_client.get(reverse(
+            'posts: post_create',
+            kwargs={
+                'username': self.author.username,
+                'post_id': self.post.id}),
+        )
+        response = self.authorized_author_client.get('/')
+        self.assertIsInstance(response.context['form'], PostForm)
+
+
+    def test_post_edit_show_correct_context(self):
+        """Шаблон post_edit сформирован с правильным контекстом."""
+
+        response = self.authorized_author_client.get(reverse(
+            'posts: post_edit',
+            kwargs={
+                'username': self.author.username,
+                'post_id': self.post.id}),
+        )
+        self.assertEqual(response.context.get('post').text, self.post.text)
+
+
+    def test_create_edit_post_show_correct_form(self):
+        """Шаблон смотрим наличие form."""
+
+        check_forms = self.authorized_client.get(reverse(
+            'posts: post_create')),self.authorized_client.get(reverse(
+            'posts: post_edit',
+            kwargs={'post.id': self. post.id})
+        )
+        for form in check_forms:
+            self.assertIsInstance(form.context['form'], PostForm)
+
+    def test_pages_having_correct_context(self):
+        """Проверка соответствие поста на разных страницах
+        что они целиком соответствуют созданному посту."""
+        check_pages = (
+            reverse('posts:index'),
+            reverse('posts:group_list', kwargs={'slug': self.group.slug}),
+            reverse('posts:profile',
+                    kwargs={'username': self.post.author.username}),
+        )
+        for page in check_pages:
+            with self.subTest(page=page):
+                response = self.authorized_client.get(page)
+                self.assertEqual(response.context['page_obj'][0], self.post)
+
     def test_guest_pages_has_correct_http_status(self):
         """Тестируем доступность страниц неавторизованными пользователями."""
         post = PostsPagesTests.post
         urls = {
             reverse('posts:index'):
                 HTTPStatus.OK,
-            reverse('posts:group_list', kwargs={'slug': 'posts_test_slug'}):
+            reverse('posts:group_list', kwargs={'slug': 'test_slug'}):
                 HTTPStatus.OK,
             reverse('posts:profile', kwargs={'username': 'posts_test'}):
                 HTTPStatus.OK,

@@ -1,13 +1,12 @@
-﻿from http import HTTPStatus
-import shutil
+﻿import shutil
 import tempfile
+from http import HTTPStatus
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings, tag
 from django.urls import reverse
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.conf import settings
-
 from posts.models import Group, Post
 
 User = get_user_model()
@@ -36,12 +35,12 @@ class TaskURLTests(TestCase):
         cls.user = User.objects.create_user(username='posts_test')
         cls.group = Group.objects.create(
             title='Тестовая группа',
-            slug='posts_test_slug',
+            slug='test_slug',
             description='Тестовое описание',
         )
         cls.group2 = Group.objects.create(
             title='Тестовая группа 2',
-            slug='posts_test_slug2',
+            slug='test_slug2',
             description='Тестовое описание 2',
         )
         cls.group_image = Group.objects.create(
@@ -79,11 +78,24 @@ class TaskURLTests(TestCase):
         # Создаем неавторизованный клиент
         self.guest_client = Client()
         # Создаем авторизованый клиент
-        self.user = TaskURLTests.user
+        #self.user = TaskURLTests.user
         # Создаем второй клиент
         self.authorized_client = Client()
         # Авторизуем пользователя
         self.authorized_client.force_login(self.user)
+
+    def test_guest_templates(self):
+        """Тестируем шаблоны общедоступных страниц."""
+        url_templates = {
+            '/': 'posts/index.html',
+            f'/group/{self.group.slug}/': 'posts/group_list.html',
+            f'/profile/{self.user.username}/': 'posts/profile.html',
+            f'/posts/{self.post.id}/': 'posts/post_detail.html',
+        }
+        for url, expected_template in url_templates.items():
+            with self.subTest(url=url):
+                response = self.guest_client.get(url)
+                self.assertTemplateUsed(response, expected_template)
 
     def test_authorized_pages(self):
         """Тестируем доступность страниц авторизованными пользователями и
@@ -91,26 +103,12 @@ class TaskURLTests(TestCase):
         post = TaskURLTests.post
         urls = {
             '/create/': HTTPStatus.OK,
-            f'/posts/{post.id}/edit/': HTTPStatus.OK,
+            f'/posts/{self.post.id}/edit/': HTTPStatus.OK,
         }
         for field, expected_value in urls.items():
             with self.subTest(field=field):
                 response = self.authorized_client.get(field)
                 self.assertEqual(response.status_code, expected_value)
-
-    def test_guest_templates(self):
-        """Тестируем шаблоны общедоступных страниц."""
-        post = TaskURLTests.post
-        url_templates = {
-            '/': 'posts/index.html',
-            '/group/test_slug/': 'posts/group_list.html',
-            '/profile/auth/': 'posts/profile.html',
-            f'/posts/{post.id}/': 'posts/post_detail.html',
-        }
-        for url, expected_template in url_templates.items():
-            with self.subTest(url=url):
-                response = self.guest_client.get(url)
-                self.assertTemplateUsed(response, expected_template)
 
     def test_author_templates(self):
         """Тестируем шаблоны страниц авторизованного пользователя и автора."""
@@ -124,13 +122,13 @@ class TaskURLTests(TestCase):
                 response = self.authorized_client.get(url)
                 self.assertTemplateUsed(response, expected_template)
 
-    def test_guest_pages(self):
+    def test_guest_view_pages(self):
         """Тестируем доступность страниц неавторизованными пользователями."""
         post = TaskURLTests.post
         urls = {
             '/': HTTPStatus.OK,
             '/group/test_slug/': HTTPStatus.OK,
-            '/profile/auth/': HTTPStatus.OK,
+            '/profile/posts_test/': HTTPStatus.OK,
             f'/posts/{post.id}/': HTTPStatus.OK,
             '/unexisting_page/': HTTPStatus.NOT_FOUND,
         }
@@ -182,4 +180,3 @@ class TaskURLTests(TestCase):
                     self.assertRaisesMessage(
                         ValueError, "The 'image' attribute has no file "
                                     "associated with it.")
-
