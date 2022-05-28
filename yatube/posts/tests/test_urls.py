@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings, tag
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from posts.models import Group, Post
 
@@ -38,11 +38,6 @@ class TaskURLTests(TestCase):
             slug='test_slug',
             description='Тестовое описание',
         )
-        cls.group2 = Group.objects.create(
-            title='Тестовая группа 2',
-            slug='test_slug2',
-            description='Тестовое описание 2',
-        )
         cls.group_image = Group.objects.create(
             title='Тестовая группа для постов с изображением',
             slug='posts_test_image_slug',
@@ -52,7 +47,7 @@ class TaskURLTests(TestCase):
             author=cls.user,
             text='Тестовый пост для проверки',
         )
-        cls.post_image = Post.objects.create(
+        cls.post_with_picture = Post.objects.create(
             author=cls.user,
             text='Тестовый пост с изображением для проверки',
             image=cls.uploaded,
@@ -61,12 +56,6 @@ class TaskURLTests(TestCase):
             author=cls.user,
             text='Групповой тестовый пост для проверки',
             group=cls.group,
-        )
-        cls.group_post_image = Post.objects.create(
-            author=cls.user,
-            text='Групповой тестовый пост с изображением для проверки',
-            group=cls.group_image,
-            image=cls.uploaded,
         )
 
     @classmethod
@@ -100,7 +89,6 @@ class TaskURLTests(TestCase):
     def test_authorized_pages(self):
         """Тестируем доступность страниц авторизованными пользователями и
         доступность страниц автором."""
-        post = TaskURLTests.post
         urls = {
             '/create/': HTTPStatus.OK,
             f'/posts/{self.post.id}/edit/': HTTPStatus.OK,
@@ -137,46 +125,29 @@ class TaskURLTests(TestCase):
                 response = self.guest_client.get(field)
                 self.assertEqual(response.status_code, expected_value)
 
-    @tag('sprint6')
-    def test_page_have_a_post_with_image(self):
-        """Проверяем context содержит изображение."""
-        url = reverse('posts:group_list', args=['posts_test_image_slug'])
-        response = self.authorized_client.get(url)
-        print(response.context.get("page_obj")[0].text)
-        self.assertNotEqual(len(response.context.get("page_obj")[0].image), 0)
+    def test_pictures_on_pages_list_posts(self):
+        """Проверка вывода картинки на главную страницу."""
+        reverse_context = {
+            reverse('post:index'): Post.objects.all()[:10],
+            reverse('post:group_list', kwargs={'slug': self.test_slug.slug}):
+                Group.objects.get(slug='test_slug').posts.all()[:10],
+            reverse('post:profile', kwargs={'username': self.author.username}):
+                User.objects.get(username='posts_test').posts.all()[:10]
+        }
+        for adress, passed_posts in reverse_context.items():
+            with self.subTest(adress=adress):
+                nums_passed_posts = passed_posts.count()
+                response = self.authorized_author.get(adress)
+                objs_on_page = list(response.context['page_obj'].object_list)
+                self.assertEqual(nums_passed_posts, len(objs_on_page))
+                for i in range(nums_passed_posts):
+                    self.assertEqual(
+                        passed_posts[i].image, objs_on_page[i].image)
 
-    @tag('sprint6')
-    def test_detail_page_have_a_post_with_image(self):
-        """Проверяем что detail в context содержит изображение."""
-        post = TaskURLTests.post_image
-        url = reverse('posts:post_detail', args=[post.id])
-        response = self.authorized_client.get(url)
-        self.assertNotEqual(len(response.context.get("post").image), 0)
-
-    @tag('sprint6')
-    def test_index_page_have_a_post_with_image(self):
-        """Проверяем что index в context содержит изображение."""
-        url = reverse('posts:index')
-        response = self.authorized_client.get(url)
-        for cont in response.context.get("page_obj"):
-            with self.subTest(cont=cont):
-                if cont.image:
-                    self.assertNotEqual(len(cont.image), 0)
-                else:
-                    self.assertRaisesMessage(
-                        ValueError, "The 'image' attribute has no file "
-                                    "associated with it.")
-
-    @tag('sprint6')
-    def test_profile_page_have_a_post_with_image(self):
-        """Проверяем что index в context содержит изображение."""
-        url = reverse('posts:profile', args=['posts_test'])
-        response = self.authorized_client.get(url)
-        for cont in response.context.get("page_obj"):
-            with self.subTest(cont=cont):
-                if cont.image:
-                    self.assertNotEqual(len(cont.image), 0)
-                else:
-                    self.assertRaisesMessage(
-                        ValueError, "The 'image' attribute has no file "
-                                    "associated with it.")
+    def test_picture_on_page_post_detail(self):
+        """Проверка вывода картинки на страницу профайла."""
+        passed_post = self.post_with_picture
+        adress = reverse(
+            'post:post_detail', kwargs={'post_id': passed_post.id})
+        response = self.authorized_author.get(adress)
+        self.assertEqual(passed_post.image, response.context['post'].image)
