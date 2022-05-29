@@ -154,20 +154,19 @@ class PostsPagesTests(TestCase):
             reverse('posts:post_detail', args=[self.post.id]))
         self.assertIsInstance(response.context['post'], Post)
 
-
-    # def test_create_edit_post_show_correct_form(self):
-    #     """Шаблон create_post сформирован с правильным контекстом."""
-    #     check_forms = (
-    #         self.authorized_client.get(reverse('posts:post_create')),
-    #         self.authorized_client.get(
-    #             reverse(
-    #                 'posts:post_edit',
-    #                 args=[self.post.id]
-    #             )
-    #         )
-    #     )
-    #     for form in check_forms:
-    #         self.assertIsInstance(form.context['form'], PostForm)
+    def test_create_edit_post_show_correct_form(self):
+        """Шаблон create_post сформирован с правильным контекстом."""
+        check_forms = (
+            self.authorized_client.get(reverse('posts:post_create')),
+            self.authorized_client.get(
+                reverse(
+                    'posts:post_edit',
+                    args=[self.post.id]
+                )
+            )
+        )
+        for form in check_forms:
+            self.assertIsInstance(form.context['form'], PostForm)
 
     # def test_pages_having_correct_context(self):
     #     """Проверка соответствие поста на разных страницах
