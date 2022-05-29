@@ -33,8 +33,8 @@
       </ul>
     </aside>
     <article class="col-12 col-md-9">
-      {% thumbnail post_detail.image "960x339" upscale=True as im %}
-        <img class="card-img my-2" src="{{ im.url }}">
+      {% thumbnail post.image "960x339" upscale=True as im %}
+        <img class="rounded mx-auto d-block" src="{{ im.url }}">
       {% endthumbnail %}
       <p>
         {{ post.text|linebreaks }}

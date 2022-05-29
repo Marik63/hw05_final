@@ -1,6 +1,5 @@
 import shutil
 import tempfile
-from urllib import response
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -10,6 +9,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from posts.forms import PostForm
 from django.core.paginator import Page
+from django.conf import settings
 
 from posts.models import Comment, Follow, Group, Post
 
@@ -140,7 +140,7 @@ class PostsPagesTests(TestCase):
         )
         page_obj = response.context.get('page_obj')
         count_obj = len(page_obj)
-        self.assertEqual(count_obj, 10)
+        self.assertEqual(count_obj, settings.PAGES)
 
     def test_post_detail_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
@@ -168,102 +168,103 @@ class PostsPagesTests(TestCase):
         for form in check_forms:
             self.assertIsInstance(form.context['form'], PostForm)
 
-    # def test_pages_having_correct_context(self):
-    #     """Проверка соответствие поста на разных страницах
-    #     что они целиком соответствуют созданному посту."""
-    #     check_pages = (
-    #         reverse('posts:index'),
-    #         reverse('posts:group_list', kwargs={'slug': self.group.slug}),
-    #         reverse('posts:profile',
-    #                 kwargs={'username': self.post.author.username}),
-    #     )
-    #     for page in check_pages:
-    #         with self.subTest(page=page):
-    #             response = self.authorized_client.get(page)
-    #             self.assertEqual(response.context['page_obj'][0], self.post)
+    def test_pages_having_correct_context(self):
+        """Проверка соответствие поста на разных страницах
+        что они целиком соответствуют созданному посту."""
+        check_pages = (
+            reverse('posts:index'),
+            reverse('posts:group_list', kwargs={'slug': self.group.slug}),
+            reverse('posts:profile',
+                    kwargs={'username': self.post.author.username}),
+        )
+        for page in check_pages:
+            with self.subTest(page=page):
+                response = self.authorized_client.get(page)
+                self.assertEqual(response.context['page_obj'][0], self.post)
 
-    # def test_pictures_on_pages_list_posts(self):
-    #     reverse_context = {
-    #         reverse('posts:index'):
-    #             Post.objects.all()[:10],
-    #         reverse('posts:group_list', args=[self.group.slug]):
-    #             Group.objects.get(slug='test_slug').posts.all()[:10],
-    #         reverse('posts:profile', args=[self.user.username]):
-    #             User.objects.get(username='Иван').posts.all()[:10]
-    #     }
-    #     for adress, passed_posts in reverse_context.items():
-    #         with self.subTest(adress=adress):
-    #             nums_passed_posts = passed_posts.count()
-    #             response = self.author_client.get(adress)
-    #             objs_on_page = list(response.context['page_obj'].object_list)
-    #             self.assertEqual(nums_passed_posts, len(objs_on_page))
-    #             for i in range(nums_passed_posts):
-    #                 self.assertEqual(
-    #                     passed_posts[i].image, objs_on_page[i].image)
+    def test_pictures_on_pages_list_posts(self):
+        """Проверка отображения картинок."""
+        reverse_context = {
+            reverse('posts:index'):
+                Post.objects.all()[:10],
+            reverse('posts:group_list', args=[self.group.slug]):
+                Group.objects.get(slug='test_slug').posts.all()[:10],
+            reverse('posts:profile', args=[self.user.username]):
+                User.objects.get(username='Иван').posts.all()[:10]
+        }
+        for adress, passed_posts in reverse_context.items():
+            with self.subTest(adress=adress):
+                nums_passed_posts = passed_posts.count()
+                response = self.author_client.get(adress)
+                objs_on_page = list(response.context['page_obj'].object_list)
+                self.assertEqual(nums_passed_posts, len(objs_on_page))
+                for i in range(nums_passed_posts):
+                    self.assertEqual(
+                        passed_posts[i].image, objs_on_page[i].image)
 
-    # def test_cache_index(self):
-    #     """Тестирование кэширования главной страницы."""
-    #     def response_page():
-    #         response = self.authorized_client.get(
-    #             reverse('posts:index')).content.decode('UTF-8')
-    #         return response
-    #     cache.clear()
-    #     text_cache = self.post.text
-    #     self.assertIn(text_cache, response_page())
-    #     Post.objects.filter(text=text_cache).delete()
-    #     cache.clear()
-    #     self.assertNotIn(text_cache, response_page())
+    def test_cache_index(self):
+        """Тестирование кэширования главной страницы."""
+        def response_page():
+            response = self.authorized_client.get(
+                reverse('posts:index')).content.decode('UTF-8')
+            return response
+        cache.clear()
+        text_cache = self.post.text
+        self.assertIn(text_cache, response_page())
+        Post.objects.filter(text=text_cache).delete()
+        cache.clear()
+        self.assertNotIn(text_cache, response_page())
 
-    # def test_comment_view(self):
-    #     """Шаблоны post_detail отображают созданный комментарий на
-    #     странице поста.
-    #     """
-    #     response = self.authorized_client.get(
-    #         reverse(
-    #             'posts:post_detail',
-    #             kwargs={'post_id': f'{PostsPagesTests.post.id}'}
-    #         )
-    #     )
-    #     first_object = response.context.get('comments')[0]
-    #     comment_post_0 = first_object
-    #     self.assertEqual(comment_post_0, PostsPagesTests.comment)
+    def test_comment_view(self):
+        """Шаблоны post_detail отображают созданный комментарий на
+        странице поста.
+        """
+        response = self.authorized_client.get(
+            reverse(
+                'posts:post_detail',
+                kwargs={'post_id': f'{PostsPagesTests.post.id}'}
+            )
+        )
+        first_object = response.context.get('comments')[0]
+        comment_post_0 = first_object
+        self.assertEqual(comment_post_0, PostsPagesTests.comment)
 
-    # def test_follow_create_subcribe_on_user(self):
-    #     """Новая запись пользователя появляется в ленте
-    #        тех, кто на него подписан.
-    #     """
-    #     user_temp = User.objects.create(username='Петр')
-    #     self.authorized_client.get(
-    #         reverse('posts:profile_follow', kwargs={'username': user_temp}))
-    #     self.assertTrue(
-    #         Follow.objects.filter(
-    #             user=self.user, author=user_temp).exists())
+    def test_follow_create_subcribe_on_user(self):
+        """Новая запись пользователя появляется в ленте
+           тех, кто на него подписан.
+        """
+        user_temp = User.objects.create(username='Петр')
+        self.authorized_client.get(
+            reverse('posts:profile_follow', kwargs={'username': user_temp}))
+        self.assertTrue(
+            Follow.objects.filter(
+                user=self.user, author=user_temp).exists())
 
-    # def test_unfollow_destroy_subscribe_on_user(self):
-    #     """Новая запись пользователя не появляется в ленте
-    #        тех, кто на него не подписан.
-    #     """
-    #     user_temp = User.objects.create(username='Петр')
-    #     Follow.objects.create(user=self.user, author=user_temp)
-    #     self.authorized_client.get(reverse(
-    #         'posts:profile_unfollow', kwargs={'username': user_temp}))
-    #     self.assertFalse(
-    #         Follow.objects.filter(
-    #             user=self.user, author=user_temp).exists())
+    def test_unfollow_destroy_subscribe_on_user(self):
+        """Новая запись пользователя не появляется в ленте
+           тех, кто на него не подписан.
+        """
+        user_temp = User.objects.create(username='Петр')
+        Follow.objects.create(user=self.user, author=user_temp)
+        self.authorized_client.get(reverse(
+            'posts:profile_unfollow', kwargs={'username': user_temp}))
+        self.assertFalse(
+            Follow.objects.filter(
+                user=self.user, author=user_temp).exists())
 
-    # def test_appearance_post_on_page_with_subscribes(self):
-    #     """Проверка появление нового поста любимого автора на его странице."""
-    #     user_temp = User.objects.create(username='Петр')
-    #     Follow.objects.create(user=self.user, author=user_temp)
-    #     test_post = Post.objects.create(
-    #         text="one post",
-    #         author=user_temp,
-    #     )
-    #     response = self.authorized_client.get(reverse('posts:follow_index'))
-    #     self.assertIn(
-    #         test_post, list(response.context['page_obj'].object_list))
-    #     # disappearance posts of athour after delete him from his favorites
-    #     Follow.objects.filter(user=self.user, author=user_temp).delete()
-    #     response = self.authorized_client.get(reverse('posts:follow_index'))
-    #     self.assertNotIn(
-    #         test_post, list(response.context['page_obj'].object_list))
+    def test_appearance_post_on_page_with_subscribes(self):
+        """Проверка появление нового поста любимого автора на его странице."""
+        user_temp = User.objects.create(username='Петр')
+        Follow.objects.create(user=self.user, author=user_temp)
+        test_post = Post.objects.create(
+            text="one post",
+            author=user_temp,
+        )
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertIn(
+            test_post, list(response.context['page_obj'].object_list))
+        # disappearance posts of athour after delete him from his favorites
+        Follow.objects.filter(user=self.user, author=user_temp).delete()
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertNotIn(
+            test_post, list(response.context['page_obj'].object_list))

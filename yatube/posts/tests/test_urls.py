@@ -84,8 +84,6 @@ class PostURLTests(TestCase):
     def test_not_author_redirect(self):
         """Проверка редирект не для автора."""
         url = f'/posts/{self.post.id}/edit/'
-        print(reverse('posts:post_edit', args=[self.post.id]))
-        print(url)
         redirect = f'/posts/{self.post.id}/'
         response = self.authorized_client.get(url)
         self.assertRedirects(response, redirect)

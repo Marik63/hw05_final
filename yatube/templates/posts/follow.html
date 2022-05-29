@@ -2,10 +2,10 @@
 {% block title %}Подписки{% endblock %}
 {% block header %}Посты авторов, на которых вы подписаны{% endblock %}
 {% block content %}
-{% load cache %}
-  <h1> Последние обновления на сайте </h1>
-  {% cache 20 index_page with page_obj %}
+  <h1> Лента подписок </h1>
   {% include 'posts/includes/switcher.html' %}
+  {% load cache %}
+  {% cache 20 follow_index with page_obj %}
   {% for post in page_obj %}
     <article>
       <ul>
