@@ -133,7 +133,6 @@ def follow_index(request):
     }
     return render(request, 'posts/follow.html', context)
 
-
 @login_required
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
@@ -143,7 +142,6 @@ def profile_follow(request, username):
             author=author
         )
     return redirect('posts:profile', username=username)
-
 
 @login_required
 def profile_unfollow(request, username):
