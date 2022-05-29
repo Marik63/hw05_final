@@ -29,29 +29,19 @@ def group_posts(request, slug):
 
 
 def profile(request, username):
-    """Показывает профиль пользователя."""
     author = get_object_or_404(User, username=username)
-    post_list = author.posts.select_related('group')
+    post_list = author.posts.all()
     page_obj = page(request, post_list)
-
-    posts_count = author.posts.count()
-    followers_count = Follow.objects.filter(author=author).count()
-    follow_count = Follow.objects.filter(user=author).count()
-
-    if request.user.is_authenticated:
-        following = Follow.objects.filter(
-            user=request.user, author=author
-        ).exists()
-    else:
-        following = False
-
+    number_of_posts = post_list.count()
     context = {
         'page_obj': page_obj,
-        'posts_amount': posts_count,
-        'follow_count': follow_count,
-        'followers_count': followers_count,
-        'following': following,
+        'author': author,
+        'post_list': post_list,
+        'number_of_posts': number_of_posts
     }
+    if request.user.is_authenticated:
+        following = author.following.filter(user=request.user)
+        context['following'] = following
     return render(request, 'posts/profile.html', context)
 
 
@@ -133,6 +123,7 @@ def follow_index(request):
     }
     return render(request, 'posts/follow.html', context)
 
+
 @login_required
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
@@ -142,6 +133,7 @@ def profile_follow(request, username):
             author=author
         )
     return redirect('posts:profile', username=username)
+
 
 @login_required
 def profile_unfollow(request, username):

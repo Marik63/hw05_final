@@ -105,39 +105,32 @@ class PostsPagesTests(TestCase):
             f'{self.group.description}'
         )
 
-    # # def test_profile_page_uses_correct_context(self):
-    # #     """Шаблон profile использует соответствующий контекст."""
-    # #     response = self.authorized_client.get(reverse(
-    # #         'posts:post_detail', args=[self.post.id]))
-    # #     self.assertEqual(response.context['post'].group, self.post.group)
-    # #     self.assertEqual(response.context['post'].text, self.post.text)
-    # #     self.assertEqual(response.context['post'].image, self.post.image)
-
-    # def test_profile_page_uses_correct_context(self):
-    #     """Шаблон profile использует соответствующий контекст."""
-    #     response = self.authorized_client.get(reverse(
-    #         'posts:post_detail', args=[self.post.id]))
-    #     first_object = response.context['post']
-    #     post_text_0 = first_object.text
-    #     post_author_0 = first_object.author.username
-    #     group_title_0 = first_object.group.title
-    #     post_pic_0 = first_object.image
-    #     self.assertEqual(
-    #         post_text_0,
-    #         f'{self.post.text}'
-    #     )
-    #     self.assertEqual(
-    #         post_author_0,
-    #         f'{self.user.username}'
-    #     )
-    #     self.assertEqual(
-    #         group_title_0,
-    #         f'{self.group.title}'
-    #     )
-    #     self.assertEqual(
-    #         post_pic_0,
-    #         f'{self.post.image}'
-    #     )
+    def test_profile_page_uses_correct_context(self):
+        """Шаблон profile использует соответствующий контекст."""
+        response = self.authorized_client.get(
+            reverse('posts:profile', args=[self.post.author])
+        )
+        first_object = response.context.get('page_obj')[0]
+        post_text_0 = first_object.text
+        post_author_0 = first_object.author.username
+        group_title_0 = first_object.group.title
+        post_pic_0 = first_object.image
+        self.assertEqual(
+            post_text_0,
+            f'{self.post.text}'
+        )
+        self.assertEqual(
+            post_author_0,
+            f'{self.user.username}'
+        )
+        self.assertEqual(
+            group_title_0,
+            f'{self.group.title}'
+        )
+        self.assertEqual(
+            post_pic_0,
+            f'{self.post.image}'
+        )
 
     # def test_post_detail_show_correct_context(self):
     #     """Шаблон post_detail сформирован с правильным контекстом."""
