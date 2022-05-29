@@ -1,4 +1,3 @@
-from email.mime import image
 from http import HTTPStatus
 import shutil
 import tempfile
