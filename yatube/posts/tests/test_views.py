@@ -142,11 +142,18 @@ class PostsPagesTests(TestCase):
         count_obj = len(page_obj)
         self.assertEqual(count_obj, 10)
 
-    # def test_post_detail_show_correct_context(self):
-    #     """Шаблон post_detail сформирован с правильным контекстом."""
-    #     response = self.authorized_client.get(
-    #         reverse('posts:post_detail', args=[self.post.id]))
-    #     self.assertEqual(response.context['post'].author, self.post.author)
+    def test_post_detail_show_correct_context(self):
+        """Шаблон post_detail сформирован с правильным контекстом."""
+        response = self.authorized_client.get(
+            reverse('posts:post_detail', args=[self.post.id]))
+        self.assertEqual(response.context['post'].author, self.post.author)
+
+    def test_post_detail_show_correct_context(self):
+        """Шаблон post_detail одни пост отфильтрованный по id."""
+        response = self.authorized_client.get(
+            reverse('posts:post_detail', args=[self.post.id]))
+        self.assertIsInstance(response.context['post'], Post)
+
 
     # def test_create_edit_post_show_correct_form(self):
     #     """Шаблон create_post сформирован с правильным контекстом."""
