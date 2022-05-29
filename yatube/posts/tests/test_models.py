@@ -71,7 +71,6 @@ class PostModelTest(TestCase):
                 self.assertEqual(
                     task._meta.get_field(value).verbose_name, expected)
 
-
     def test_help_text(self):
         """help_text в полях совпадает с ожидаемым."""
         task = PostModelTest.post
