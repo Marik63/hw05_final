@@ -3,6 +3,7 @@ from django.contrib.auth import views
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.conf.urls import handler404, handler403, handler500
 
 urlpatterns = [
     path('admin/', admin.site.urls),

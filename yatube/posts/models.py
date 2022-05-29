@@ -81,7 +81,7 @@ class Comment(models.Model):
         help_text='Укажите заголовок комментария'
     )
     created = models.DateTimeField(
-        verbose_name='Дата публикации', 
+        verbose_name='Дата публикации',
         auto_now_add=True
     )
 
@@ -105,6 +105,6 @@ class Follow(models.Model):
 
     class Meta:
         UniqueConstraint(
-                fields=["user", "author"],
-                name="unique_follow"
-            )
+            fields=["user", "author"],
+            name="unique_follow"
+        )

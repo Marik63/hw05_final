@@ -1,14 +1,11 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.cache import cache_page
-
 
 from .models import (Follow, Group, Post, User)
 from .forms import CommentForm, PostForm
 from .utils import page
 
 
-@cache_page(20, key_prefix='index_page')
 def index(request):
     post_list = Post.objects.select_related('author', 'group')
     page_obj = page(request, post_list)
@@ -34,13 +31,26 @@ def group_posts(request, slug):
 def profile(request, username):
     """Показывает профиль пользователя."""
     author = get_object_or_404(User, username=username)
-    posts_count = author.posts.count()
     post_list = author.posts.select_related('group')
-    page_object = page(request, post_list)
+    page_obj = page(request, post_list)
+
+    posts_count = author.posts.count()
+    followers_count = Follow.objects.filter(author=author).count()
+    follow_count = Follow.objects.filter(user=author).count()
+
+    if request.user.is_authenticated:
+        following = Follow.objects.filter(
+            user=request.user, author=author
+        ).exists()
+    else:
+        following = False
+
     context = {
-        'author': author,
-        'page_obj': page_object,
+        'page_obj': page_obj,
         'posts_amount': posts_count,
+        'follow_count': follow_count,
+        'followers_count': followers_count,
+        'following': following,
     }
     return render(request, 'posts/profile.html', context)
 
@@ -50,10 +60,13 @@ def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     form = CommentForm(request.POST or None)
     comments = post.comments.all()
+
+    posts_count = post.author.posts.count()
     context = {
         'post': post,
         'form': form,
         'comments': comments,
+        'posts_count': posts_count,
     }
     return render(request, 'posts/post_detail.html', context)
 
@@ -110,9 +123,9 @@ def add_comment(request, post_id):
         comment.save()
     return redirect('posts:post_detail', post_id=post_id)
 
+
 @login_required
 def follow_index(request):
-    # информация о текущем пользователе доступна в переменной request.user
     post_list = Post.objects.filter(author__following__user=request.user)
     page_obj = page(request, post_list)
     context = {
@@ -123,20 +136,24 @@ def follow_index(request):
 
 @login_required
 def profile_follow(request, username):
-    # Подписаться на автора
     author = get_object_or_404(User, username=username)
     if request.user != author:
-        Follow.objects.get_or_create(user=request.user, author=author)
-    return redirect("profile", username=username)
+        Follow.objects.get_or_create(
+            user=request.user,
+            author=author
+        )
+    return redirect('posts:profile', username=username)
 
 
 @login_required
 def profile_unfollow(request, username):
-    # Дизлайк, отписка
     author = get_object_or_404(User, username=username)
     if request.user != author:
-        Follow.objects.filter(user=request.user, author=author).delete()
-    return redirect("profile", username=username)
+        Follow.objects.filter(
+            user=request.user,
+            author=author
+        ).delete()
+    return redirect('posts:profile', username=username)
 
 
 def page_not_found(request, exception):
