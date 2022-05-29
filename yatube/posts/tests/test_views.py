@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from urllib import response
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -131,6 +132,15 @@ class PostsPagesTests(TestCase):
             post_pic_0,
             f'{self.post.image}'
         )
+
+    def test_profile_object_correct_context(self):
+        """Шаблон profile соответствует количеству объектов на странице."""
+        response = self.authorized_client.get(
+            reverse('posts:profile', args=[self.post.author])
+        )
+        page_obj = response.context.get('page_obj')
+        count_obj = len(page_obj)
+        self.assertEqual(count_obj, 10)
 
     # def test_post_detail_show_correct_context(self):
     #     """Шаблон post_detail сформирован с правильным контекстом."""
