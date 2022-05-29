@@ -1,3 +1,4 @@
+from email.mime import image
 from http import HTTPStatus
 import shutil
 import tempfile
@@ -53,6 +54,7 @@ class PostsFormsTestCase(TestCase):
             text='Test post 1 text.',
             author=cls.user,
             group=cls.group,
+            image=cls.uploaded
         )
 
     @classmethod
@@ -99,14 +101,12 @@ class PostsFormsTestCase(TestCase):
         Post.objects.filter(
             text=form_data['text'],
             author=self.post.author,
-            group=self.group,
-            image='posts/small.gif'
+            group=self.group
         ).exists()
         latest = Post.objects.order_by('-pub_date').first()
         self.assertEqual(latest.pk, post_count + 1)
         self.assertEqual(latest.text, form_data['text'])
         self.assertEqual(latest.group, self.group)
-        #self.assertEqual(latest.image, 'posts/small.gif')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_edit_valid_post(self):
