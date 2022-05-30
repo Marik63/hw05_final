@@ -138,22 +138,14 @@ def profile_follow(request, username):
 @login_required
 def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
-    if request.user != author:
-        Follow.objects.filter(
+    follow = Follow.objects.filter(
+        user=request.user,
+        author=author
+    ).exists()
+
+    if not follow and author != request.user:
+
+        Follow.objects.create(
             user=request.user,
             author=author
-        ).delete()
-    return redirect('posts:profile', username=username)
-
-
-def page_not_found(request, exception):
-    return render(
-        request,
-        "core/404.html",
-        {"path": request.path},
-        status=404
-    )
-
-
-def server_error(request):
-    return render(request, "core/500.html", status=500)
+        )
