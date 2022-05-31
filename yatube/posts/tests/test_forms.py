@@ -4,7 +4,6 @@ import tempfile
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -35,7 +34,6 @@ class PostsFormsTestCase(TestCase):
             content=cls.small_gif,
             content_type='image/gif'
         )
-        # Создаем пользователя
         cls.user = User.objects.create(
             username='test_user'
         )
@@ -45,7 +43,7 @@ class PostsFormsTestCase(TestCase):
             description='Test group 1 description'
         )
         cls.group_two = Group.objects.create(
-            title='Тестовая группа для постов с изображением',
+            title='Test group 2',
             slug='posts_test_two_slug',
             description='Тестовое описание с изображением',
         )
@@ -65,7 +63,6 @@ class PostsFormsTestCase(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
-        cache.clear()
 
     def test_create_new_post(self):
         """Проверка добавления нового поста
@@ -73,7 +70,7 @@ class PostsFormsTestCase(TestCase):
         """
         post_count = Post.objects.count()
         form_data = {
-            'text': 'Новый текст очередного поста.',
+            'text': 'Test group 1.',
             'group': self.group.id,
             'image': self.uploaded
         }
@@ -82,32 +79,21 @@ class PostsFormsTestCase(TestCase):
             data=form_data,
             follow=True
         )
-        self.assertEqual(Post.objects.count(), post_count + 1)
         self.assertRedirects(
             response,
             reverse('posts:profile', kwargs={'username': self.user})
         )
-        post = Post.objects.latest('pub_date')
-        post_last = {
-            post.text: form_data['text'],
-            post.group.id: form_data['group'],
-            post.author: self.user
-        }
-        for date, value in post_last.items():
-            with self.subTest(date=date):
-                self.assertEqual(date, value)
-        latest = Post.objects.get(pk=2)
+        self.assertEqual(Post.objects.count(), post_count + 1)
+        latest = Post.objects.order_by('-pub_date').first()
         self.assertEqual(latest.pk, post_count + 1)
         self.assertEqual(latest.text, form_data['text'])
         self.assertEqual(latest.group, self.group)
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        # self.assertTrue(latest.image)
-        # не могу проверить наличие картинки. База возвращает None
+        # self.assertEqual(latest.image.name, 'posts/small.gif')
+        # Не получается произвести проверку картинки
 
     def test_edit_valid_post(self):
-        """Проверка валидности формы со страницы редактирования
-        поста reverse('posts:post_edit') меняется запись в базе данных.
-        """
+        """Проверка редактирования поста с новым текстом и группой."""
         form_data = {
             'text': 'Test post 2 text.',
             'group': self.group_two.id,
