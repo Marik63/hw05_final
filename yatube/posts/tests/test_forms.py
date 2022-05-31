@@ -111,18 +111,26 @@ class PostsFormsTestCase(TestCase):
         form_data = {
             'text': 'Test post 2 text.',
             'group': self.group_two.id,
-            'image': self.uploaded
+            'image': self.uploaded2
         }
         response = self.authorized_client.post(
             reverse('posts:post_edit', args=[self.post.id]),
             data=form_data,
             follow=True
         )
-        self.assertEqual(response.context.get('post').text, form_data['text'])
-        self.assertEqual(
+        self.assertTrue(response.context.get('post').text, form_data['text'])
+        self.assertTrue(
             response.context.get('post').group.id, form_data['group']
         )
-        self.assertEqual(
+        self.assertTrue(
             response.context.get('post').image.name, 'posts/small.gif'
         )
         self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        # self.assertTrue(
+        #     Post.objects.filter(
+        #         text=form_data['text'],
+        #         # group=form_data['group'],
+        #         # image=form_data['image']
+        #     ).exists()
+        # )
