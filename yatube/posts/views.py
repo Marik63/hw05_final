@@ -65,7 +65,8 @@ def post_detail(request, post_id):
 def post_create(request):
     """Создаёт новый пост."""
     form = PostForm(
-        request.POST or None
+        request.POST or None,
+        files=request.FILES or None
     )
     if not form.is_valid():
         return render(request, 'posts/create_post.html', {'form': form})
