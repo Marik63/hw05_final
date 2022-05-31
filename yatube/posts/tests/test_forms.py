@@ -109,7 +109,7 @@ class PostsFormsTestCase(TestCase):
     def test_edit_valid_post(self):
         """Проверка редактирования поста с новым текстом и группой."""
         form_data = {
-            'text': 'Test post 2 text.',
+            'text': 'Test post 1 text.',
             'group': self.group_two.id,
             'image': self.uploaded2
         }
@@ -118,19 +118,9 @@ class PostsFormsTestCase(TestCase):
             data=form_data,
             follow=True
         )
-        self.assertTrue(response.context.get('post').text, form_data['text'])
-        self.assertTrue(
-            response.context.get('post').group.id, form_data['group']
-        )
-        self.assertTrue(
-            response.context.get('post').image.name, 'posts/small.gif'
-        )
+        latest = Post.objects.order_by('-pub_date').first()
+        self.assertEqual(latest.text, form_data['text'])
+        self.assertEqual(latest.group, self.group)
         self.assertEqual(response.status_code, HTTPStatus.OK)
-
-        # self.assertTrue(
-        #     Post.objects.filter(
-        #         text=form_data['text'],
-        #         # group=form_data['group'],
-        #         # image=form_data['image']
-        #     ).exists()
-        # )
+        self.assertEqual(latest.image.name, 'posts/small.gif')
+        self.assertEqual(response.status_code, HTTPStatus.OK)
