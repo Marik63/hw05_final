@@ -132,7 +132,7 @@ def profile_follow(request, username):
     follower_count = Follow.objects.filter(
         user=user,
         author=author
-    ).count()
+    ).exists()
     if user != author and follower_count == 0:
         Follow.objects.create(
             user=user,
