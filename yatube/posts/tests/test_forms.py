@@ -118,7 +118,7 @@ class PostsFormsTestCase(TestCase):
             data=form_data,
             follow=True
         )
-        latest = Post.objects.order_by('-pub_date').first()
+        latest = Post.objects.get(post=self.post.id)
         self.assertEqual(latest.text, form_data['text'])
         self.assertEqual(latest.group, self.group)
         self.assertEqual(response.status_code, HTTPStatus.OK)
