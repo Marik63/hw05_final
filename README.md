@@ -1,3 +1,48 @@
-# hw05_final
+# Yatube
 
-[![CI](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml/badge.svg?branch=master)](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml)
+Yatube - социальная сеть, созданная в рамках учебного курса Яндекс.Практикум.
+Yatube дает пользователям возможность создать учетную запись, публиковать посты и подписываться на любимых авторов. Посты могут быть привязаны к тематической группе, на которую также можно подписаться.
+
+## Стек технологий
+- проект написан на Python с использованием веб-фреймворка Django.
+- работа с изображениями - sorl-thumbnail, pillow
+- система управления версиями - git
+- база данных - SQLite
+
+## Как запустить проект:
+Клонировать репозиторий и перейти в него в командной строке:
+```
+    git clone https://github.com/Marik63/hw05_final.git
+```
+```
+    cd hw05_final
+```
+Cоздать и активировать виртуальное окружение:
+```
+    python -m venv env
+```
+```
+    source env/bin/activate
+```
+```
+    python -m pip install --upgrade pip
+```
+Установить зависимости из файла requirements.txt:
+```
+    pip install -r requirements.txt
+```
+Выполнить миграции:
+```
+    python3 manage.py migrate
+```
+Создайте суперпользователя:
+```
+    python3 manage.py createsuperuser
+```
+Запустить проект:
+```
+    python3 manage.py runserver
+```
+____
+Ваш проект запустился на http://127.0.0.1:8000/  
+C помощью команды pytest вы можете запустить тесты и проверить работу модулей 
